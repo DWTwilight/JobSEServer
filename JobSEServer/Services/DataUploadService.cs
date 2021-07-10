@@ -129,7 +129,7 @@ namespace JobSEServer.Services
             while (!stoppingToken.IsCancellationRequested)
             {
                 await this.UploadElasticAsync();
-                await Task.Delay(TimeSpan.FromMinutes(interval));
+                await Task.Delay(TimeSpan.FromMinutes(interval), stoppingToken);
             }
         }
     }
