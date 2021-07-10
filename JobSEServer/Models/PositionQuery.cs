@@ -18,7 +18,7 @@ namespace JobSEServer.Models
     {
         public string Title { get; set; }
         public int Limit { get; set; }
-        public string Exlude { get; set; }
+        public string Exclude { get; set; }
     }
 
     public class PositionQuery

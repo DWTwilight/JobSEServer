@@ -49,47 +49,5 @@ namespace JobSEServer.Controllers
                 return BadRequest(e.Message);
             }
         }
-
-        [HttpPost]
-        [Route("Company")]
-        public async Task<IActionResult> AddCompanyAsync(Company company)
-        {
-            try
-            {
-                return Ok(await elasticService.AddCompanyAsync(company));
-            }
-            catch (Exception e)
-            {
-                return BadRequest(e.Message);
-            }
-        }
-
-        [HttpPost]
-        [Route("Job")]
-        public async Task<IActionResult> AddPositionAsync(Position position)
-        {
-            try
-            {
-                return Ok(await elasticService.AddPositionAsync(position));
-            }
-            catch (Exception e)
-            {
-                return BadRequest(e.Message);
-            }
-        }
-
-        [HttpPost]
-        [Route("Job/Bulk")]
-        public async Task<IActionResult> BulkAddPositionAsync(IList<Position> positions)
-        {
-            try
-            {
-                return Ok(await elasticService.BulkAddPositionAsync(positions));
-            }
-            catch (Exception e)
-            {
-                return BadRequest(e.Message);
-            }
-        }
     }
 }

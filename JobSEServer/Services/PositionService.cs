@@ -130,8 +130,8 @@ namespace JobSEServer.Services
             {
                 var response = await this.client.SearchAsync<Position>(s =>
                 s.Sort(sd => sd.Descending(SortSpecialField.Score)).Size(query.Limit)
-                .Query(q => q.Match(qd => qd.Field(p => p.Title).Query(query.Title)) && !q.Ids(p => p.Values(query.Exlude)))
-                .Source(sc => sc.Excludes(e => e.Fields(p => p.Description, p => p.Requirement)))
+                .Query(q => q.Match(qd => qd.Field(p => p.Title).Query(query.Title)) && !q.Ids(p => p.Values(query.Exclude)))
+                .Source(sc => sc.Excludes(e => e.Fields(p => p.Description)))
                 );
 
                 if (!response.IsValid)

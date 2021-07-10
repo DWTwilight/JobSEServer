@@ -1,4 +1,6 @@
-﻿using JobSEServer.Models;
+﻿using JobSEServer.DatabaseContext;
+using JobSEServer.Models;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nest;
@@ -51,7 +53,6 @@ namespace JobSEServer.Services
                 {
                     Name = "Microsoft",
                     IconUrl = "iurl0",
-                    Url = "url0",
                     Location = "San Francisco",
                     Description = "Description For Micorsoft"
                 },
@@ -59,7 +60,6 @@ namespace JobSEServer.Services
                 {
                     Name = "HP",
                     IconUrl = "iurl1",
-                    Url = "url1",
                     Location = "New York",
                     Description = "Description For HP",
                 }
@@ -107,7 +107,7 @@ namespace JobSEServer.Services
                             Description = new JobDescription()
                             {
                                 Url = "Job Url 00",
-                                Descritpion = "Job Des for 00",
+                                Description = "Job Des for 00",
                                 Tags = new List<string>()
                                 {
                                     "微软",
@@ -143,7 +143,7 @@ namespace JobSEServer.Services
                             Description = new JobDescription()
                             {
                                 Url = "Job Url 01",
-                                Descritpion = "Job Des for 01",
+                                Description = "Job Des for 01",
                                 Tags = new List<string>()
                                 {
                                     "微软",
@@ -179,7 +179,7 @@ namespace JobSEServer.Services
                             Description = new JobDescription()
                             {
                                 Url = "Job Url 10",
-                                Descritpion = "Job Des for 10",
+                                Description = "Job Des for 10",
                                 Tags = new List<string>()
                                 {
                                     "外企",
@@ -215,7 +215,7 @@ namespace JobSEServer.Services
                             Description = new JobDescription()
                             {
                                 Url = "Job Url 11",
-                                Descritpion = "Job Des for 11",
+                                Description = "Job Des for 11",
                                 Tags = new List<string>()
                                 {
                                     "外企",
@@ -236,119 +236,6 @@ namespace JobSEServer.Services
             }
         }
 
-        public async Task<string> AddCompanyAsync(Company company)
-        {
-            try
-            {
-                var id = GetStringHash(company.Url);
-
-                var existResponse = await this.client.DocumentExistsAsync<Company>(id, idx => idx.Index(this.options.Value.CompanyIndexName));
-                if (existResponse.Exists)
-                {
-                    return id;
-                }
-
-                var insertResponse = await this.client.IndexAsync(company, idx => idx.Index(this.options.Value.CompanyIndexName).Id(id));
-                if (!insertResponse.IsValid)
-                {
-                    throw new Exception(insertResponse.DebugInformation);
-                }
-                return id;
-            }
-            catch (Exception e)
-            {
-                logger.LogError(e.Message);
-                throw;
-            }
-        }
-
-        public async Task<string> AddPositionAsync(Position position)
-        {
-            try
-            {
-                var getResponse = await this.client.GetAsync<Company>(position.CompanyId, idx => idx.Index(this.options.Value.CompanyIndexName));
-                if (!getResponse.Found)
-                {
-                    throw new Exception("Company does not exist!");
-                }
-
-                var id = GetStringHash(position.Description.Url);
-                position.Title = string.Join('#', getResponse.Source.Name, position.Title);
-
-                await this.InsertPositionAsync(position, id);
-                return id;
-
-            }
-            catch (Exception e)
-            {
-                logger.LogError(e.Message);
-                throw;
-            }
-        }
-
-        public async Task<IList<string>> BulkAddPositionAsync(IList<Position> positions)
-        {
-            try
-            {
-                if(positions.Count <= 0)
-                {
-                    return null;
-                }
-                //Check Company Ids
-                var cId = positions[0].CompanyId;
-                if(positions.Any(p => p.CompanyId != cId))
-                {
-                    throw new Exception("Company Ids must be the same!");
-                }
-
-                //CheckCompany
-                var getResponse = await this.client.GetAsync<Company>(cId, idx => idx.Index(this.options.Value.CompanyIndexName));
-                if (!getResponse.Found)
-                {
-                    throw new Exception("Company does not exist!");
-                }
-
-                //Generate Ids
-                var ids = positions.Select(p => GetStringHash(p.Description.Url)).ToList();
-
-                //Process Title
-                for (int i = 0; i < positions.Count; i++)
-                {
-                    var p = positions[i];
-                    p.Title = string.Join('#', getResponse.Source.Name, p.Title);
-                    await this.InsertPositionAsync(p, ids[i]);
-                }
-
-                return ids;
-            }
-            catch (Exception e)
-            {
-                logger.LogError(e.Message);
-                throw;
-            }
-        }
-
-        private async Task InsertPositionAsync(Position position, string id)
-        {
-            var insertResponse = await this.client.IndexAsync(position, idx => idx.Index(this.options.Value.PositionIndexName).Id(id));
-            if (!insertResponse.IsValid)
-            {
-                throw new Exception(insertResponse.DebugInformation);
-            }
-        }
-
-        private static MD5 md5 = System.Security.Cryptography.MD5.Create();
-        public static string GetStringHash(string str)
-        {
-            var hash = md5.ComputeHash(Encoding.Default.GetBytes(str));
-            var sb = new StringBuilder();
-
-            for (int i = 0; i < hash.Length; i++)
-            {
-                sb.Append(hash[i].ToString("X2"));
-            }
-
-            return sb.ToString();
-        }
+        
     }
 }

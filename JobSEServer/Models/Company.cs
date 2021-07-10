@@ -1,6 +1,9 @@
 ﻿using Nest;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -24,12 +27,6 @@ namespace JobSEServer.Models
         public string IconUrl { get; set; }
 
         /// <summary>
-        /// 公司Url(天眼查)
-        /// </summary>
-        [Keyword(Index = false)]
-        public string Url { get; set; }
-
-        /// <summary>
         /// 地点
         /// </summary>
         [Keyword(Index = false)]
@@ -40,6 +37,44 @@ namespace JobSEServer.Models
         /// </summary>
         [Keyword(Index = false)]
         public string Description { get; set; }
+    }
+
+    [Table("company")]
+    public class CompanyMySql
+    {
+        [Key]
+        [Column("id")]
+        public string Id { get; set; }
+
+        [Column("name")]
+        public string Name { get; set; }
+
+        [Column("iconurl")]
+        public string IconUrl { get; set; }
+
+        [Column("tags")]
+        public string Tags { get; set; }
+
+        [Column("location")]
+        public string Location { get; set; }
+
+        [Column("description")]
+        public string Description { get; set; }
+
+        [Column("uploaded")]
+        public bool Uploaded { get; set; }
+
+        public Company GetCompany()
+        {
+            return new Company()
+            {
+                Description = this.Description,
+                IconUrl = this.IconUrl,
+                Location = this.Location,
+                Name = this.Name,
+                Tags = JsonConvert.DeserializeObject<List<string>>(this.Tags)
+            };
+        }
     }
 
     public class CompanyInfo

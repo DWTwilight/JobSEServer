@@ -1,3 +1,4 @@
+using JobSEServer.DatabaseContext;
 using JobSEServer.Models;
 using JobSEServer.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -5,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -34,10 +36,16 @@ namespace JobSEServer
             //options
             services.Configure<ElasticOptions>(Configuration.GetSection("ElasticConfig"));
             services.Configure<JWTAuthOption>(Configuration.GetSection("JWTAuthOption"));
+            services.AddSingleton(new MysqlOption() { ConnectionString = Configuration.GetConnectionString("JobSEDb") });
 
-            services.AddSingleton<ElasticService>();
-            services.AddSingleton<PositionService>();
-            services.AddSingleton<CompanyService>();
+            services.AddDbContext<JobSEDbContext>(options => options.UseMySQL(Configuration.GetConnectionString("JobSEDb")));
+
+            services.AddTransient<ElasticService>();
+
+            services.AddScoped<PositionService>();
+            services.AddScoped<CompanyService>();
+
+            services.AddHostedService<DataUploadService>();
 
             services.AddCors(options => options.AddPolicy("AllowCors", builder => builder.WithOrigins("*").AllowAnyMethod().AllowAnyHeader()));
 
