@@ -166,7 +166,7 @@ namespace JobSEServer.Services
                 var response = await this.client.SearchAsync<Position>(s =>
                 s.Sort(sd => sd.Descending(p => p.UpdateTime)).From(start).Size(limit)
                 .Query(q => q.ConstantScore(qd => qd.Filter(qcd => qcd.Term(p => p.CompanyId, companyId))))
-                .Source(sc => sc.Excludes(e => e.Fields(p => p.Description, p => p.Requirement)))
+                .Source(sc => sc.Excludes(e => e.Fields(p => p.Description.Description)))
                 );
 
                 if (!response.IsValid)

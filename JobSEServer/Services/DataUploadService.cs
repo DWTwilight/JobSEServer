@@ -54,6 +54,7 @@ namespace JobSEServer.Services
                 await dbContext.SaveChangesAsync();
 
                 var positionsToUpload = await dbContext.Positions.Where(p => !p.Uploaded && p.CompanyId != null && p.Tags != null).ToListAsync();
+                logger.LogDebug(positionsToUpload.Count.ToString());
                 foreach (var position in positionsToUpload)
                 {
                     try
@@ -62,7 +63,7 @@ namespace JobSEServer.Services
                         position.Uploaded = true;
                         dbContext.Positions.Update(position);
                     }
-                    catch (Exception) { }
+                    catch (Exception e) { logger.LogError(e.Message); }
                 }
                 await dbContext.SaveChangesAsync();
             }

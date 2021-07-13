@@ -17,12 +17,14 @@ namespace JobSEServer.Services
     {
         private readonly ILogger<ElasticService> logger;
         private readonly IOptions<ElasticOptions> options;
+        private readonly JobSEDbContext dbContext;
         private ElasticClient client;
 
-        public ElasticService(ILogger<ElasticService> logger, IOptions<ElasticOptions> options)
+        public ElasticService(ILogger<ElasticService> logger, IOptions<ElasticOptions> options, JobSEDbContext dbContext)
         {
             this.logger = logger;
             this.options = options;
+            this.dbContext = dbContext;
 
             var settings = new ConnectionSettings(new Uri(options.Value.Url));
             this.client = new ElasticClient(settings);
@@ -30,6 +32,17 @@ namespace JobSEServer.Services
 
         public async Task CreateIndexAsync()
         {
+            await dbContext.Positions.ForEachAsync(p => p.Uploaded = false);
+            //await dbContext.Positions.ForEachAsync(p =>
+            //{
+            //    if (p.Base != null && !p.Base.StartsWith("["))
+            //    {
+            //        p.Base = "[\"" + p.Base + "\"]";
+            //    }
+            //});
+            await dbContext.Companies.ForEachAsync(c => c.Uploaded = false);
+            await dbContext.SaveChangesAsync();
+
             await this.client.Indices.DeleteAsync(options.Value.CompanyIndexName);
             await this.client.Indices.DeleteAsync(options.Value.PositionIndexName);
 
@@ -47,192 +60,15 @@ namespace JobSEServer.Services
 
         public async Task InsertTestDataAsync()
         {
-            var companies = new List<Company>()
+            try
             {
-                new Company()
-                {
-                    Name = "Microsoft",
-                    IconUrl = "iurl0",
-                    Location = "San Francisco",
-                    Description = "Description For Micorsoft"
-                },
-                new Company()
-                {
-                    Name = "HP",
-                    IconUrl = "iurl1",
-                    Location = "New York",
-                    Description = "Description For HP",
-                }
-            };
-
-            var response = await this.client.IndexManyAsync(companies, options.Value.CompanyIndexName);
-            if (response.Errors)
-            {
-                foreach (var error in response.ItemsWithErrors)
-                {
-                    logger.LogError($"Failed to index document {error.Id}: {error.Error}");
-                }
-                throw new Exception("Unalbe To Insert");
+                await dbContext.Positions.ForEachAsync(p => p.Url = p.Url.Replace("html", "html?"));
+                await dbContext.SaveChangesAsync();
             }
-
-            var ids = response.Items.Select(i => i.Id).ToList();
-
-            var jobs = new List<Position>()
+            catch (Exception e)
             {
-                new Position()
-            {
-                            Title = "Microsoft#C++ Engineer",
-                            CompanyId = ids[0],
-                            UpdateTime = DateTime.Now,
-                            Rating = 0,
-                            Views = 0,
-                            Salary = new Salary()
-                            {
-                                Provided = true,
-                                Amount = new DoubleRange()
-                                {
-                                    GreaterThanOrEqualTo = 15000,
-                                    LessThanOrEqualTo = 25000
-                                }
-                            },
-                            Requirement = new JobRequirement()
-                            {
-                                Experience = 6,
-                                Degree = Degree.Master,
-                                Base = new List<string>()
-                                {
-                                    "Beijing", "Shanghai"
-                                }
-                            },
-                            Description = new JobDescription()
-                            {
-                                Url = "Job Url 00",
-                                Description = "Job Des for 00",
-                                Tags = new List<string>()
-                                {
-                                    "微软",
-                                    "高福利"
-                                }
-                            }
-                        },
-                new Position()
-                        {
-                            Title = "Microsoft#Java Engineer",
-                            CompanyId = ids[0],
-                            UpdateTime = DateTime.Now - TimeSpan.FromDays(1),
-                            Rating = 0,
-                            Views = 0,
-                            Salary = new Salary()
-                            {
-                                Provided = false,
-                                Amount = new DoubleRange()
-                                {
-                                    GreaterThanOrEqualTo = 20000,
-                                    LessThanOrEqualTo = 25000
-                                }
-                            },
-                            Requirement = new JobRequirement()
-                            {
-                                Experience = 36,
-                                Degree = Degree.Bachelor,
-                                Base = new List<string>()
-                                {
-                                    "Beijing", "Chengdu"
-                                }
-                            },
-                            Description = new JobDescription()
-                            {
-                                Url = "Job Url 01",
-                                Description = "Job Des for 01",
-                                Tags = new List<string>()
-                                {
-                                    "微软",
-                                    "高福利"
-                                }
-                            }
-                        },
-                new Position()
-                        {
-                            Title = "HP#C++ Engineer(Extra)",
-                            CompanyId = ids[1],
-                            UpdateTime = DateTime.Now - TimeSpan.FromDays(5),
-                            Rating = 0,
-                            Views = 0,
-                            Salary = new Salary()
-                            {
-                                Provided = true,
-                                Amount = new DoubleRange()
-                                {
-                                    GreaterThanOrEqualTo = 20000,
-                                    LessThanOrEqualTo = 30000
-                                }
-                            },
-                            Requirement = new JobRequirement()
-                            {
-                                Experience = 18,
-                                Degree = Degree.Master,
-                                Base = new List<string>()
-                                {
-                                    "Guangdong", "Shanghai"
-                                }
-                            },
-                            Description = new JobDescription()
-                            {
-                                Url = "Job Url 10",
-                                Description = "Job Des for 10",
-                                Tags = new List<string>()
-                                {
-                                    "外企",
-                                    "高福利"
-                                }
-                            }
-                        },
-                new Position()
-                        {
-                            Title = "HP#Java Engineer(Extra)",
-                            CompanyId = ids[1],
-                            UpdateTime = DateTime.Now - TimeSpan.FromDays(6),
-                            Rating = 0,
-                            Views = 0,
-                            Salary = new Salary()
-                            {
-                                Provided = false,
-                                Amount = new DoubleRange()
-                                {
-                                    GreaterThanOrEqualTo = 30000,
-                                    LessThanOrEqualTo = 40000
-                                }
-                            },
-                            Requirement = new JobRequirement()
-                            {
-                                Experience = 24,
-                                Degree = Degree.Doctor,
-                                Base = new List<string>()
-                                {
-                                    "Nanjing", "Chengdu"
-                                }
-                            },
-                            Description = new JobDescription()
-                            {
-                                Url = "Job Url 11",
-                                Description = "Job Des for 11",
-                                Tags = new List<string>()
-                                {
-                                    "外企",
-                                    "高福利"
-                                }
-                            }
-                        }
-            };
-
-            response = await this.client.IndexManyAsync(jobs, options.Value.PositionIndexName);
-            if (response.Errors)
-            {
-                foreach (var error in response.ItemsWithErrors)
-                {
-                    logger.LogError($"Failed to index document {error.Id}: {error.Error}");
-                }
-                throw new Exception("Unalbe To Insert");
+                logger.LogError(e.Message);
+                throw;
             }
         }
 

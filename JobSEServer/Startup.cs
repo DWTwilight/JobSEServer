@@ -40,8 +40,7 @@ namespace JobSEServer
 
             services.AddDbContext<JobSEDbContext>(options => options.UseMySQL(Configuration.GetConnectionString("JobSEDb")));
 
-            services.AddTransient<ElasticService>();
-
+            services.AddScoped<ElasticService>();
             services.AddScoped<PositionService>();
             services.AddScoped<CompanyService>();
 
