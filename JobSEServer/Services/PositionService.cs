@@ -1,4 +1,5 @@
-﻿using JobSEServer.Models;
+﻿using Elasticsearch.Net;
+using JobSEServer.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nest;
@@ -13,17 +14,19 @@ namespace JobSEServer.Services
     {
         private readonly ILogger<PositionService> logger;
         private readonly CompanyService companyService;
+        private readonly TagService tagService;
         private readonly IOptions<ElasticOptions> options;
         private ElasticClient client;
 
-        public PositionService(ILogger<PositionService> logger, CompanyService companyService, IOptions<ElasticOptions> options)
+        public PositionService(ILogger<PositionService> logger, CompanyService companyService, TagService tagService, IOptions<ElasticOptions> options, ESClientManagerService esClientService)
         {
             this.logger = logger;
             this.companyService = companyService;
+            this.tagService = tagService;
             this.options = options;
 
-            var settings = new ConnectionSettings(new Uri(options.Value.Url)).DefaultIndex(options.Value.PositionIndexName);
-            this.client = new ElasticClient(settings);
+            //var settings = new ConnectionSettings(new Uri(options.Value.Url)).DefaultIndex(options.Value.PositionIndexName);
+            this.client = esClientService.Client;//new ElasticClient(settings);
         }
 
         /// <summary>
@@ -35,6 +38,7 @@ namespace JobSEServer.Services
         {
             try
             {
+                _ = this.tagService.CreateOrUpdateTagsAsync(query.Tags);
                 var pList = await this.GetPositionInfoListAsync(query);
 
                 var companies = new Dictionary<string, Company>();
@@ -43,7 +47,9 @@ namespace JobSEServer.Services
                     var cid = p.Position.CompanyId;
                     if (!companies.ContainsKey(cid))
                     {
-                        companies.Add(cid, await companyService.GetCompanyAsync(cid));
+                        var c = await companyService.GetCompanyAsync(cid);
+                        c.Description = null;
+                        companies.Add(cid, c);
                     }
                 }
 
@@ -73,7 +79,7 @@ namespace JobSEServer.Services
                 //Update Views
                 position.Views++;
 
-                var response = await this.client.UpdateAsync<Position>(id, op => op.Doc(position));
+                var response = await this.client.UpdateAsync<Position>(id, op => op.Index(options.Value.PositionIndexName).Doc(position));
                 if (!response.IsValid)
                 {
                     throw new Exception("Unable To Update Views!");
@@ -105,7 +111,7 @@ namespace JobSEServer.Services
                 {
                     position.Rating = score;
                 }
-                var response = await this.client.UpdateAsync<Position>(id, op => op.Doc(position));
+                var response = await this.client.UpdateAsync<Position>(id, op => op.Index(options.Value.PositionIndexName).Doc(position));
                 if (!response.IsValid)
                 {
                     throw new Exception("Unable To Update Views!");
@@ -129,7 +135,7 @@ namespace JobSEServer.Services
             try
             {
                 var response = await this.client.SearchAsync<Position>(s =>
-                s.Sort(sd => sd.Descending(SortSpecialField.Score)).Size(query.Limit)
+                s.Index(options.Value.PositionIndexName).Sort(sd => sd.Descending(SortSpecialField.Score)).Size(query.Limit)
                 .Query(q => q.Match(qd => qd.Field(p => p.Title).Query(query.Title)) && !q.Ids(p => p.Values(query.Exclude)))
                 .Source(sc => sc.Excludes(e => e.Fields(p => p.Description)))
                 );
@@ -164,7 +170,7 @@ namespace JobSEServer.Services
             try
             {
                 var response = await this.client.SearchAsync<Position>(s =>
-                s.Sort(sd => sd.Descending(p => p.UpdateTime)).From(start).Size(limit)
+                s.Index(options.Value.PositionIndexName).Sort(sd => sd.Descending(p => p.UpdateTime)).From(start).Size(limit)
                 .Query(q => q.ConstantScore(qd => qd.Filter(qcd => qcd.Term(p => p.CompanyId, companyId))))
                 .Source(sc => sc.Excludes(e => e.Fields(p => p.Description.Description)))
                 );
@@ -191,11 +197,64 @@ namespace JobSEServer.Services
             }
         }
 
+        public async Task<IList<PositionSuggestion>> GetSuggestionsAsync(string keyWord)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(keyWord))
+                {
+                    throw new Exception("Value Cannot Be NULL!");
+                }
+                var response = await this.client.SearchAsync<Position>(s =>
+                s.Index(options.Value.PositionIndexName).Sort(sd => sd.Descending(SortSpecialField.Score)).Size(5)
+                .Query(q => q.Match(qd => qd.Field(p => p.Title).Query(keyWord)))
+                .Source(sc => sc.Includes(i => i.Fields(p => p.Title, p => p.Views)))
+                );
+
+                if (!response.IsValid)
+                {
+                    throw new Exception("Unable To Search\n" + response.DebugInformation);
+                }
+
+                return response.Hits.Select(hit => new PositionSuggestion()
+                {
+                    Id = hit.Id,
+                    Title = hit.Source.Title,
+                    Views = hit.Source.Views
+                }).ToList();
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e.Message);
+                throw;
+            }
+        }
+
+        public async Task<long> GetPositionCountAsync()
+        {
+            try
+            {
+                var response = await this.client.CountAsync<Position>(cd => cd.Index(options.Value.PositionIndexName));
+
+                if (!response.IsValid)
+                {
+                    throw new Exception(response.DebugInformation);
+                }
+
+                return response.Count;
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e.Message);
+                throw;
+            }
+        }
+
         private async Task<Position> GetPositionAsync(string id)
         {
             try
             {
-                var response = await this.client.GetAsync<Position>(id);
+                var response = await this.client.GetAsync<Position>(id, gd => gd.Index(options.Value.PositionIndexName));
                 if (!response.Found)
                 {
                     throw new Exception("Position Not Found!");
@@ -214,7 +273,7 @@ namespace JobSEServer.Services
             try
             {
                 var response = await this.client.SearchAsync<Position>(s =>
-                s.Sort(sd =>
+                s.Index(options.Value.PositionIndexName).Sort(sd =>
                 {
                     switch (query.SortOrder)
                     {
@@ -227,18 +286,38 @@ namespace JobSEServer.Services
                         default:
                             return sd.Descending(SortSpecialField.Score);
                     }
-                }).From(query.Start).Size(query.Limit).Query(q =>
+                }).From(query.Start).Size(query.Limit).TrackTotalHits(true).Query(q =>
                 {
                     if (query.IsDefault())
                     {
                         return q.MatchAll();
                     }
-                    var qContainer = new QueryContainer();
+                    QueryContainer titleQ;
+                    QueryContainer tagQ = new QueryContainer();
 
                     if (!string.IsNullOrEmpty(query.Title))
                     {
-                        qContainer = qContainer && (q.Match(qd => qd.Field(p => p.Title).Query(query.Title)) || q.Term(p => p.Description.Tags, query.Title));
+                        titleQ = q.Match(qd => qd.Field(p => p.Title).Query(query.Title));
+
                     }
+                    else
+                    {
+                        titleQ = new QueryContainer();
+                    }
+
+                    if (query.Tags == null || query.Tags.Count == 0)
+                    {
+                        tagQ = new QueryContainer();
+                    }
+                    else
+                    {
+                        foreach (var tag in query.Tags)
+                        {
+                            tagQ = tagQ || q.Term(p => p.Description.Tags, tag, 2);
+                        }
+                    }
+
+                    var qContainer = titleQ || tagQ;
 
                     if (!string.IsNullOrEmpty(query.Base))
                     {
@@ -261,19 +340,27 @@ namespace JobSEServer.Services
                     }
 
                     return qContainer;
-                }).Source(sc => sc.Excludes(e => e.Field(p => p.Description))));
+                }).Highlight(hs => 
+                hs.Fields(
+                    fd => fd.Field(p => p.Title).Type(HighlighterType.Plain).PreTags("<span class=\"title highlight\">").PostTags("</span>"),
+                    fd => fd.Field(p => p.Description.Tags).Type(HighlighterType.Plain).PreTags("<span class=\"tag highlight\">").PostTags("</span>"))
+                ).Source(sc => sc.Excludes(e => e.Fields(p => p.Description.Description, p => p.Description.Url)))
+                );
 
                 if (!response.IsValid)
                 {
-                    throw new Exception("Unable To Search");
+                    throw new Exception("Unable To Search\n" + response.DebugInformation);
                 }
 
                 return new PositionInfoList()
                 {
-                    Positions = response.Hits.Select(hit => new PositionInfo()
-                    {
-                        Id = hit.Id,
-                        Position = hit.Source
+                    Positions = response.Hits.Select(hit => {
+                        return new PositionInfo()
+                        {
+                            Id = hit.Id,
+                            Position = hit.Source,
+                            Highlight = new PositioinHighlight(hit.Highlight)
+                        };
                     }).ToList(),
                     Total = response.Total
                 };

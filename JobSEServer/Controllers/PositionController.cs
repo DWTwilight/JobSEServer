@@ -10,16 +10,18 @@ using System.Threading.Tasks;
 
 namespace JobSEServer.Controllers
 {
-    [Authorize]
+    //[Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class PositionController : ControllerBase
     {
         private readonly PositionService positionService;
+        private readonly TagService tagService;
 
-        public PositionController(PositionService positionService)
+        public PositionController(PositionService positionService, TagService tagService)
         {
             this.positionService = positionService;
+            this.tagService = tagService;
         }
 
         [HttpPost]
@@ -70,6 +72,48 @@ namespace JobSEServer.Controllers
             try
             {
                 return Ok(await positionService.GetPositionDetailAsync(id));
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.Message);
+            }
+        }
+
+        [HttpGet]
+        [Route("Suggest")]
+        public async Task<IActionResult> GetSuggestionisAsync(string keyword)
+        {
+            try
+            {
+                return Ok(await positionService.GetSuggestionsAsync(keyword));
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.Message);
+            }
+        }
+
+        [HttpGet]
+        [Route("HotTags")]
+        public async Task<IActionResult> GetHotTagsAsync(int limit)
+        {
+            try
+            {
+                return Ok(await tagService.GetHotTagsAsync(limit));
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.Message);
+            }
+        }
+
+        [HttpGet]
+        [Route("Count")]
+        public async Task<IActionResult> GetPositionCountAsync()
+        {
+            try
+            {
+                return Ok(await positionService.GetPositionCountAsync());
             }
             catch (Exception e)
             {

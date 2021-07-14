@@ -1,4 +1,5 @@
-﻿using JobSEServer.Models;
+﻿using Elasticsearch.Net;
+using JobSEServer.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nest;
@@ -15,20 +16,20 @@ namespace JobSEServer.Services
         private readonly IOptions<ElasticOptions> options;
         private ElasticClient client;
 
-        public CompanyService(ILogger<CompanyService> logger, IOptions<ElasticOptions> options)
+        public CompanyService(ILogger<CompanyService> logger, IOptions<ElasticOptions> options, ESClientManagerService esClientService)
         {
             this.logger = logger;
             this.options = options;
 
-            var settings = new ConnectionSettings(new Uri(options.Value.Url)).DefaultIndex(options.Value.CompanyIndexName);
-            this.client = new ElasticClient(settings);
+            //var settings = new ConnectionSettings(new Uri(options.Value.Url)).DefaultIndex(options.Value.CompanyIndexName).BasicAuthentication(options.Value.Username, options.Value.Password);
+            this.client = esClientService.Client;
         }
 
         public async Task<Company> GetCompanyAsync(string id)
         {
             try
             {
-                var response = await this.client.GetAsync<Company>(id);
+                var response = await this.client.GetAsync<Company>(id, gd => gd.Index(options.Value.CompanyIndexName));
                 if (!response.Found)
                 {
                     throw new Exception("Company Not Found!");
@@ -47,7 +48,7 @@ namespace JobSEServer.Services
             try
             {
                 var response = await this.client.SearchAsync<Company>(s =>
-                s.Sort(sd => sd.Descending(SortSpecialField.Score)).From(start).Size(limit)
+                s.Index(options.Value.CompanyIndexName).Sort(sd => sd.Descending(SortSpecialField.Score)).From(start).Size(limit)
                 .Query(q => q.Match(qd => qd.Field(p => p.Name).Query(name)) || q.Term(p => p.Tags, name))
                 .Source(sc => sc.Excludes(e => e.Field(p => p.Description))));
 

@@ -1,4 +1,5 @@
-﻿using JobSEServer.DatabaseContext;
+﻿using Elasticsearch.Net;
+using JobSEServer.DatabaseContext;
 using JobSEServer.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
@@ -17,14 +18,14 @@ namespace JobSEServer.Services
 {
     public class DataUploadService : BackgroundService
     {
-        private const int interval = 15;
+        private const int interval = 30;
 
         private readonly ILogger<DataUploadService> logger;
         private readonly IOptions<ElasticOptions> options;
         private readonly JobSEDbContext dbContext;
         private ElasticClient client;
 
-        public DataUploadService(ILogger<DataUploadService> logger, IOptions<ElasticOptions> options, MysqlOption mysqlOption)
+        public DataUploadService(ILogger<DataUploadService> logger, IOptions<ElasticOptions> options, MysqlOption mysqlOption, ESClientManagerService esClientService)
         {
             this.logger = logger;
             this.options = options;
@@ -32,40 +33,48 @@ namespace JobSEServer.Services
             var dbOptions = new DbContextOptionsBuilder<JobSEDbContext>().UseMySQL(mysqlOption.ConnectionString).Options;
             this.dbContext = new JobSEDbContext(dbOptions);
 
-            var settings = new ConnectionSettings(new Uri(options.Value.Url));
-            this.client = new ElasticClient(settings);
+            var settings = new ConnectionSettings(new Uri(options.Value.Url)).BasicAuthentication(options.Value.Username, options.Value.Password);
+            this.client = esClientService.Client;
         }
 
         public async Task UploadElasticAsync()
         {
             try
             {
-                var companiesToUpload = await dbContext.Companies.Where(c => !c.Uploaded).ToListAsync();
-                foreach (var company in companiesToUpload)
+                var companiesToUpload = await dbContext.Companies.Where(c => !c.Uploaded).Take(200).ToListAsync();
+                if(companiesToUpload.Count > 0)
                 {
-                    try
+                    foreach (var company in companiesToUpload)
                     {
-                        await this.InsertCompanyAsync(company.GetCompany(), company.Id);
-                        company.Uploaded = true;
-                        dbContext.Companies.Update(company);
+                        try
+                        {
+                            await this.InsertCompanyAsync(company.GetCompany(), company.Id);
+                            company.Uploaded = true;
+                            dbContext.Companies.Update(company);
+                        }
+                        catch (Exception) { }
                     }
-                    catch (Exception) { }
+                    await dbContext.SaveChangesAsync();
+                    logger.LogInformation("Updated Companies { Count: " + companiesToUpload.Count + " }");
                 }
-                await dbContext.SaveChangesAsync();
+                
 
-                var positionsToUpload = await dbContext.Positions.Where(p => !p.Uploaded && p.CompanyId != null && p.Tags != null).ToListAsync();
-                logger.LogDebug(positionsToUpload.Count.ToString());
-                foreach (var position in positionsToUpload)
+                var positionsToUpload = await dbContext.Positions.Where(p => !p.Uploaded && p.CompanyId != null && p.Tags != null).Take(1000).ToListAsync();
+                if(positionsToUpload.Count > 0)
                 {
-                    try
+                    foreach (var position in positionsToUpload)
                     {
-                        await this.InsertPositionAsync(position.GetPosition());
-                        position.Uploaded = true;
-                        dbContext.Positions.Update(position);
+                        try
+                        {
+                            await this.InsertPositionAsync(position.GetPosition());
+                            position.Uploaded = true;
+                            dbContext.Positions.Update(position);
+                        }
+                        catch (Exception e) { logger.LogError(e.Message); }
                     }
-                    catch (Exception e) { logger.LogError(e.Message); }
+                    await dbContext.SaveChangesAsync();
+                    logger.LogInformation("Updated Positions { Count: " + positionsToUpload.Count + " }");
                 }
-                await dbContext.SaveChangesAsync();
             }
             catch (Exception e)
             {
@@ -127,10 +136,11 @@ namespace JobSEServer.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            await Task.Delay(10000, stoppingToken);
             while (!stoppingToken.IsCancellationRequested)
             {
                 await this.UploadElasticAsync();
-                await Task.Delay(TimeSpan.FromMinutes(interval), stoppingToken);
+                await Task.Delay(TimeSpan.FromSeconds(interval), stoppingToken);
             }
         }
     }

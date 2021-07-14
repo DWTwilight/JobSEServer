@@ -28,6 +28,10 @@ namespace JobSEServer.Models
         /// </summary>
         public string Title { get; set; }
         /// <summary>
+        /// 标签
+        /// </summary>
+        public List<string> Tags { get; set; }
+        /// <summary>
         /// 工作地点，全词匹配，若为Null或空则不限
         /// </summary>
         public string Base { get; set; }
@@ -52,7 +56,50 @@ namespace JobSEServer.Models
 
         public bool IsDefault()
         {
-            return string.IsNullOrEmpty(Title) && string.IsNullOrEmpty(Base) && Degree == 0 && Salary == 0 && Experience == -1;
+            return string.IsNullOrEmpty(Title) && string.IsNullOrEmpty(Base) && Degree == 0 && Salary == 0 && Experience == -1 && Tags == null;
+        }
+    }
+
+    public class PositionSuggestion
+    {
+        public string Id { get; set; }
+        public string Title { get; set; }
+        public int Views { get; set; }
+    }
+
+    public class PositioinHighlight
+    {
+        public string TitleHighlight { get; set; }
+        public IDictionary<string, string> TagsHighlight { get; set; }
+
+        public PositioinHighlight(IReadOnlyDictionary<string, IReadOnlyCollection<string>> highlight)
+        {
+            if(highlight.TryGetValue("title", out var collection))
+            {
+                TitleHighlight = collection.FirstOrDefault();
+            }
+
+            if(highlight.TryGetValue("description.tags", out collection))
+            {
+                if(collection.Count > 0)
+                {
+                    TagsHighlight = collection.ToDictionary(tag => GetOriginalTag(tag), tag => tag);
+                }
+            }
+        }
+
+        private static string GetOriginalTag(string highlightedTag)
+        {
+            try
+            {
+                var i = highlightedTag.IndexOf('>');
+                var j = highlightedTag.LastIndexOf('<');
+                return highlightedTag.Substring(i + 1, j - i - 1);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
     }
 
@@ -60,6 +107,7 @@ namespace JobSEServer.Models
     {
         public string Id { get; set; }
         public Position Position { get; set; }
+        public PositioinHighlight Highlight { get; set; }
     }
 
     public class PositionInfoList

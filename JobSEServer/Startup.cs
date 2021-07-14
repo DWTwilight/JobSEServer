@@ -1,6 +1,7 @@
 using JobSEServer.DatabaseContext;
 using JobSEServer.Models;
 using JobSEServer.Services;
+using JobSEServer.Utilities;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -15,6 +16,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -33,6 +36,11 @@ namespace JobSEServer
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            //Logging
+            var listener = new JobSETraceListener() { LogFileName = "JobSEServer.log" };
+            listener.WriteLine(string.Format("\n------------ [{0}] Server Starting ------------", DateTime.Now.ToString("s")));
+            services.AddLogging(builder => builder.AddTraceSource(new SourceSwitch("default", "All"), listener));
+
             //options
             services.Configure<ElasticOptions>(Configuration.GetSection("ElasticConfig"));
             services.Configure<JWTAuthOption>(Configuration.GetSection("JWTAuthOption"));
@@ -40,9 +48,12 @@ namespace JobSEServer
 
             services.AddDbContext<JobSEDbContext>(options => options.UseMySQL(Configuration.GetConnectionString("JobSEDb")));
 
+            services.AddSingleton<ESClientManagerService>();
+
             services.AddScoped<ElasticService>();
             services.AddScoped<PositionService>();
             services.AddScoped<CompanyService>();
+            services.AddScoped<TagService>();
 
             services.AddHostedService<DataUploadService>();
 

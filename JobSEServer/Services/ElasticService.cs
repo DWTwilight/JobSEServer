@@ -1,4 +1,5 @@
-﻿using JobSEServer.DatabaseContext;
+﻿using Elasticsearch.Net;
+using JobSEServer.DatabaseContext;
 using JobSEServer.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -20,14 +21,14 @@ namespace JobSEServer.Services
         private readonly JobSEDbContext dbContext;
         private ElasticClient client;
 
-        public ElasticService(ILogger<ElasticService> logger, IOptions<ElasticOptions> options, JobSEDbContext dbContext)
+        public ElasticService(ILogger<ElasticService> logger, IOptions<ElasticOptions> options, JobSEDbContext dbContext, ESClientManagerService esClientService)
         {
             this.logger = logger;
             this.options = options;
             this.dbContext = dbContext;
 
-            var settings = new ConnectionSettings(new Uri(options.Value.Url));
-            this.client = new ElasticClient(settings);
+            //var settings = new ConnectionSettings(new Uri(options.Value.Url)).BasicAuthentication(options.Value.Username, options.Value.Password);
+            this.client = esClientService.Client;//new ElasticClient(settings);
         }
 
         public async Task CreateIndexAsync()
@@ -62,8 +63,7 @@ namespace JobSEServer.Services
         {
             try
             {
-                await dbContext.Positions.ForEachAsync(p => p.Url = p.Url.Replace("html", "html?"));
-                await dbContext.SaveChangesAsync();
+                await this.client.CountAsync<Company>(cd => cd.Index(options.Value.CompanyIndexName));
             }
             catch (Exception e)
             {

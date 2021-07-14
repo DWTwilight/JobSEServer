@@ -11,7 +11,7 @@ namespace JobSEServer.DatabaseContext
     {
         public DbSet<PositionMySql> Positions { get; set; }
         public DbSet<CompanyMySql> Companies { get; set; }
-
+        public DbSet<HotTag> HotTags { get; set; }
 
         public JobSEDbContext(DbContextOptions<JobSEDbContext> options) : base(options) {}
     }
