@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 
 namespace JobSEServer.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class DataController : ControllerBase

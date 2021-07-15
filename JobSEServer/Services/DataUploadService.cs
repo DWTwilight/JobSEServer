@@ -41,7 +41,7 @@ namespace JobSEServer.Services
         {
             try
             {
-                var companiesToUpload = await dbContext.Companies.Where(c => !c.Uploaded).Take(200).ToListAsync();
+                var companiesToUpload = await dbContext.Companies.Where(c => !c.Uploaded).Take(500).ToListAsync();
                 if(companiesToUpload.Count > 0)
                 {
                     foreach (var company in companiesToUpload)

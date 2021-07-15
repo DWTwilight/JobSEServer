@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace JobSEServer.Controllers
 {
-    //[Authorize]
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class CompanyController : ControllerBase

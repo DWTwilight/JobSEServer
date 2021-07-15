@@ -317,7 +317,7 @@ namespace JobSEServer.Services
                         }
                     }
 
-                    var qContainer = titleQ || tagQ;
+                    var qContainer = titleQ && tagQ;
 
                     if (!string.IsNullOrEmpty(query.Base))
                     {

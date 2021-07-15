@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace JobSEServer.Controllers
 {
-    //[Authorize]
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class PositionController : ControllerBase
@@ -95,11 +95,11 @@ namespace JobSEServer.Controllers
 
         [HttpGet]
         [Route("HotTags")]
-        public async Task<IActionResult> GetHotTagsAsync(int limit)
+        public async Task<IActionResult> GetHotTagsAsync(int limit, int threshold)
         {
             try
             {
-                return Ok(await tagService.GetHotTagsAsync(limit));
+                return Ok(await tagService.GetHotTagsAsync(limit, threshold));
             }
             catch (Exception e)
             {

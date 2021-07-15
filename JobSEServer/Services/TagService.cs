@@ -68,12 +68,12 @@ namespace JobSEServer.Services
             }
         }
 
-        public async Task<IList<HotTag>> GetHotTagsAsync(int limit)
+        public async Task<IList<HotTag>> GetHotTagsAsync(int limit, int threshold)
         {
             try
             {
                 var timeLimit = DateTime.Now - TimeSpan.FromDays(30);
-                return await dbContext.HotTags.Where(t => t.LastUpdate > timeLimit).OrderByDescending(t => t.Count).Take(limit).ToListAsync();
+                return await dbContext.HotTags.Where(t => t.Count >= threshold && t.LastUpdate > timeLimit).OrderByDescending(t => t.Count).Take(limit).ToListAsync();
             }
             catch (Exception e)
             {
