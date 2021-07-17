@@ -58,9 +58,12 @@ namespace JobSEServer.Services
                             titleQ = q.Match(qd => qd.Field(p => p.Name).Query(query.Title));
                         }
 
-                        foreach (var tag in query.Tags)
+                        if(query.Tags != null)
                         {
-                            tagQ = tagQ || q.Term(p => p.Tags, tag);
+                            foreach (var tag in query.Tags)
+                            {
+                                tagQ = tagQ || q.Term(p => p.Tags, tag);
+                            }
                         }
 
                         return titleQ && tagQ;
