@@ -101,6 +101,10 @@ namespace JobSEServer.Services
         {
             try
             {
+                if (string.IsNullOrEmpty(name))
+                {
+                    throw new Exception("Value Cannot Be NULL!");
+                }
                 var response = await this.client.SearchAsync<Company>(s =>
                 s.Index(options.Value.CompanyIndexName).Sort(sd => sd.Descending(SortSpecialField.Score)).Size(5)
                 .Query(q => q.Match(qd => qd.Field(p => p.Name).Query(name)) || q.Term(p => p.Tags, name))
