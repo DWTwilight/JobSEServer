@@ -79,11 +79,7 @@ namespace JobSEServer.Services
                 //Update Views
                 position.Views++;
 
-                var response = await this.client.UpdateAsync<Position>(id, op => op.Index(options.Value.PositionIndexName).Doc(position));
-                if (!response.IsValid)
-                {
-                    throw new Exception("Unable To Update Views!");
-                }
+                _ = this.UpdateViewsAsync(position, id);
 
                 return new PositionDetail()
                 {
@@ -95,6 +91,22 @@ namespace JobSEServer.Services
             {
                 logger.LogError(e.Message);
                 throw;
+            }
+        }
+
+        private async Task UpdateViewsAsync(Position position, string id)
+        {
+            try
+            {
+                var response = await this.client.UpdateAsync<Position>(id, op => op.Index(options.Value.PositionIndexName).Doc(position));
+                if (!response.IsValid)
+                {
+                    throw new Exception("Unable To Update Views!\n" + response.DebugInformation);
+                }
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e.Message);
             }
         }
 
