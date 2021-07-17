@@ -108,7 +108,7 @@ namespace JobSEServer.Services
                 var response = await this.client.SearchAsync<Company>(s =>
                 s.Index(options.Value.CompanyIndexName).Sort(sd => sd.Descending(SortSpecialField.Score)).Size(5)
                 .Query(q => q.Match(qd => qd.Field(p => p.Name).Query(name)) || q.Term(p => p.Tags, name))
-                .Source(sc => sc.Excludes(e => e.Field(p => p.Description))));
+                .Source(sc => sc.Excludes(e => e.Fields(p => p.Description, p => p.Tags))));
 
                 if (!response.IsValid)
                 {

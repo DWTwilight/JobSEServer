@@ -16,10 +16,10 @@ namespace JobSEServer.Models
     public class CompanyStatistics
     {
         public long TotalCount { get; set; }
-        public double AverageSalary { get; set; }
-        public double AverageRating { get; set; }
-        public double AverageViewCount { get; set; }
-        public IList<KeyValuePair<string, long>> Tags { get; set; }
+        public double? AverageSalary { get; set; }
+        public double? AverageRating { get; set; }
+        public double? AverageViewCount { get; set; }
+        public IList<KeyValuePair<string, long?>> Tags { get; set; }
         public IList<long> SalaryRange { get; set; }
     }
 }
