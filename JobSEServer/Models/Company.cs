@@ -81,11 +81,48 @@ namespace JobSEServer.Models
     {
         public string Id { get; set; }
         public Company Company { get; set; }
+        public CompanyHighlight Highlight { get; set; }
     }
 
     public class CompanyInfoList
     {
         public long Total { get; set; }
         public IList<CompanyInfo> CompanyList { get; set; }
+    }
+
+    public class CompanyHighlight
+    {
+        public string TitleHighlight { get; set; }
+        public IDictionary<string, string> TagsHighlight { get; set; }
+
+        public CompanyHighlight(IReadOnlyDictionary<string, IReadOnlyCollection<string>> highlight)
+        {
+            if (highlight.TryGetValue("name", out var collection))
+            {
+                TitleHighlight = collection.FirstOrDefault();
+            }
+
+            if (highlight.TryGetValue("tags", out collection))
+            {
+                if (collection.Count > 0)
+                {
+                    TagsHighlight = collection.ToDictionary(tag => GetOriginalTag(tag), tag => tag);
+                }
+            }
+        }
+
+        private static string GetOriginalTag(string highlightedTag)
+        {
+            try
+            {
+                var i = highlightedTag.IndexOf('>');
+                var j = highlightedTag.LastIndexOf('<');
+                return highlightedTag.Substring(i + 1, j - i - 1);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
     }
 }

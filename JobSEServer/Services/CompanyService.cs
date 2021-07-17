@@ -43,14 +43,33 @@ namespace JobSEServer.Services
             }
         }
 
-        public async Task<CompanyInfoList> SearchCompanyAsync(string name, int start, int limit)
+        public async Task<CompanyInfoList> SearchCompanyAsync(CompanyQuery query)
         {
             try
             {
                 var response = await this.client.SearchAsync<Company>(s =>
-                s.Index(options.Value.CompanyIndexName).Sort(sd => sd.Descending(SortSpecialField.Score)).From(start).Size(limit)
-                .Query(q => q.Match(qd => qd.Field(p => p.Name).Query(name)) || q.Term(p => p.Tags, name))
-                .Source(sc => sc.Excludes(e => e.Field(p => p.Description))));
+                s.Index(options.Value.CompanyIndexName).Sort(sd => sd.Descending(SortSpecialField.Score)).From(query.Start).Size(query.Limit)
+                .Query(q =>
+                    {
+                        var titleQ = new QueryContainer();
+                        var tagQ = new QueryContainer();
+                        if(query.Title != null)
+                        {
+                            titleQ = q.Match(qd => qd.Field(p => p.Name).Query(query.Title));
+                        }
+
+                        foreach (var tag in query.Tags)
+                        {
+                            tagQ = tagQ || q.Term(p => p.Tags, tag);
+                        }
+
+                        return titleQ && tagQ;
+                    }
+                ).Highlight(hs =>
+                hs.Fields(
+                    fd => fd.Field(p => p.Name).Type(HighlighterType.Plain).PreTags("<span class=\"title highlight\">").PostTags("</span>"),
+                    fd => fd.Field(p => p.Tags).Type(HighlighterType.Plain).PreTags("<span class=\"tag highlight\">").PostTags("</span>"))
+                ).Source(sc => sc.Excludes(e => e.Field(p => p.Description))));
 
                 if (!response.IsValid)
                 {
@@ -62,10 +81,38 @@ namespace JobSEServer.Services
                     CompanyList = response.Hits.Select(hit => new CompanyInfo()
                     {
                         Id = hit.Id,
-                        Company = hit.Source
+                        Company = hit.Source,
+                        Highlight = new CompanyHighlight(hit.Highlight)
                     }).ToList(),
                     Total = response.Total
                 };
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e.Message);
+                throw;
+            }
+        }
+
+        public async Task<IList<CompanyInfo>> GetSuggestionsAsync(string name)
+        {
+            try
+            {
+                var response = await this.client.SearchAsync<Company>(s =>
+                s.Index(options.Value.CompanyIndexName).Sort(sd => sd.Descending(SortSpecialField.Score)).Size(5)
+                .Query(q => q.Match(qd => qd.Field(p => p.Name).Query(name)) || q.Term(p => p.Tags, name))
+                .Source(sc => sc.Excludes(e => e.Field(p => p.Description))));
+
+                if (!response.IsValid)
+                {
+                    throw new Exception("Unable To Search");
+                }
+
+                return response.Hits.Select(hit => new CompanyInfo()
+                {
+                    Id = hit.Id,
+                    Company = hit.Source
+                }).ToList();
             }
             catch (Exception e)
             {

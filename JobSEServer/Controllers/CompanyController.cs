@@ -1,4 +1,5 @@
-﻿using JobSEServer.Services;
+﻿using JobSEServer.Models;
+using JobSEServer.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -48,13 +49,27 @@ namespace JobSEServer.Controllers
         /// <param name="start"></param>
         /// <param name="limit"></param>
         /// <returns>公司列表，简略信息</returns>
-        [HttpGet]
+        [HttpPost]
         [Route("Search")]
-        public async Task<IActionResult> SearchCompanyAsync(string name, int start, int limit)
+        public async Task<IActionResult> SearchCompanyAsync([FromForm] CompanyQuery query)
         {
             try
             {
-                return Ok(await companyService.SearchCompanyAsync(name, start, limit));
+                return Ok(await companyService.SearchCompanyAsync(query));
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.Message);
+            }
+        }
+
+        [HttpGet]
+        [Route("Suggest")]
+        public async Task<IActionResult> GetSuggestionsAsync(string name)
+        {
+            try
+            {
+                return Ok(await companyService.GetSuggestionsAsync(name));
             }
             catch (Exception e)
             {
