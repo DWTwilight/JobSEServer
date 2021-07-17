@@ -101,7 +101,7 @@ namespace JobSEServer.Models
                 Salary = new Salary()
                 {
                     Provided = this.SalaryProvided,
-                    Amount = new DoubleRange()
+                    Amount = new Amount()
                     {
                         GreaterThanOrEqualTo = this.SalaryMin,
                         LessThanOrEqualTo = this.SalaryMax
@@ -157,6 +157,14 @@ namespace JobSEServer.Models
     public class Salary
     {
         public bool Provided { get; set; }
-        public DoubleRange Amount { get; set; }
+        public Amount Amount { get; set; }
+    }
+
+    public class Amount
+    {
+        [PropertyName("gte")]
+        public double GreaterThanOrEqualTo { get; set; }
+        [PropertyName("lte")]
+        public double LessThanOrEqualTo { get; set; }
     }
 }

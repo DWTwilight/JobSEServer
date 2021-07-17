@@ -3,6 +3,7 @@ using JobSEServer.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nest;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -262,6 +263,49 @@ namespace JobSEServer.Services
             }
         }
 
+        public async Task<CompanyStatistics> GetCompanyStatisticsAsync(string companyId)
+        {
+            try
+            {
+                var res = new CompanyStatistics();
+
+                var response = await this.client.SearchAsync<Position>(sd => sd.Index(options.Value.PositionIndexName).Size(0).Query(q => q.Term(p => p.CompanyId, companyId))
+                .Aggregations(acd => acd
+                .WeightedAverage("average_salary", waad => waad.Value(v => v.Script("(doc['salary.amount.gte'].value+doc['salary.amount.lte'].value)/2")).Weight(w => w.Field(p => p.Salary.Provided)))
+                .Average("average_rating", aad => aad.Field(p => p.Rating).Missing(2.5))
+                .Average("average_views", aad => aad.Field(p => p.Views).Missing(0))
+                .Terms("tags", tad => tad.Field(p => p.Description.Tags).Size(50))
+                .Range("salary_range", rad => rad.Script("if(doc['salary.provided'].value){ return (doc['salary.amount.gte'].value+doc['salary.amount.lte'].value)/2} return -1").Ranges(
+                    ard => ard.To(0),
+                    ard => ard.From(0).To(3000),
+                    ard => ard.From(3000).To(5000),
+                    ard => ard.From(5000).To(10000),
+                    ard => ard.From(10000).To(15000),
+                    ard => ard.From(15000).To(25000),
+                    ard => ard.From(25000)
+                    ))));
+
+                if (!response.IsValid)
+                {
+                    throw new Exception("Unable to Get Statistics\n" + response.DebugInformation);
+                }
+
+                res.TotalCount = response.Total;
+                res.AverageSalary = response.Aggregations.WeightedAverage("average_salary").Value.Value;
+                res.AverageRating = response.Aggregations.Average("average_rating").Value.Value;
+                res.AverageViewCount = response.Aggregations.Average("average_views").Value.Value;
+                res.Tags = response.Aggregations.Terms("tags").Buckets.Select(b => new KeyValuePair<string, long>(b.Key, b.DocCount.Value)).ToList();
+                res.SalaryRange = response.Aggregations.Range("salary_range").Buckets.Select(b => b.DocCount).ToList();
+
+                return res;
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e.Message);
+                throw;
+            }
+        }
+
         private async Task<Position> GetPositionAsync(string id)
         {
             try
@@ -343,7 +387,7 @@ namespace JobSEServer.Services
 
                     if (query.Salary > 0)
                     {
-                        qContainer = qContainer && q.Term(p => p.Salary.Provided, true) && q.Range(qd => qd.Field(p => p.Salary.Amount).GreaterThanOrEquals(query.Salary));
+                        qContainer = qContainer && q.Term(p => p.Salary.Provided, true) && q.Range(qd => qd.Field(p => p.Salary.Amount.LessThanOrEqualTo).GreaterThanOrEquals(query.Salary));
                     }
 
                     if (query.Experience >= 0)

@@ -97,5 +97,19 @@ namespace JobSEServer.Controllers
                 return BadRequest(e.Message);
             }
         }
+
+        [HttpGet]
+        [Route("Statistics")]
+        public async Task<IActionResult> GetCompanyStatisticsAsync(string id)
+        {
+            try
+            {
+                return Ok(await positionService.GetCompanyStatisticsAsync(id));
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.Message);
+            }
+        }
     }
 }
