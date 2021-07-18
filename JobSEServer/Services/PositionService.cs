@@ -273,7 +273,7 @@ namespace JobSEServer.Services
                 .Aggregations(acd => acd
                 .WeightedAverage("average_salary", waad => waad.Value(v => v.Script("(doc['salary.amount.gte'].value+doc['salary.amount.lte'].value)/2")).Weight(w => w.Field(p => p.Salary.Provided)))
                 .Average("average_rating", aad => aad.Field(p => p.Rating).Missing(2.5))
-                .Average("average_views", aad => aad.Field(p => p.Views).Missing(0))
+                .Sum("total_views", aad => aad.Field(p => p.Views).Missing(0))
                 .Terms("tags", tad => tad.Field(p => p.Description.Tags).Size(50))
                 .Range("salary_range", rad => rad.Script("if(doc['salary.provided'].value){ return (doc['salary.amount.gte'].value+doc['salary.amount.lte'].value)/2} return -1").Ranges(
                     ard => ard.To(0),
@@ -293,7 +293,7 @@ namespace JobSEServer.Services
                 res.TotalCount = response.Total;
                 res.AverageSalary = response.Aggregations.WeightedAverage("average_salary").Value;
                 res.AverageRating = response.Aggregations.Average("average_rating").Value;
-                res.AverageViewCount = response.Aggregations.Average("average_views").Value;
+                res.TotalViewCount = response.Aggregations.Sum("average_views").Value;
                 res.Tags = response.Aggregations.Terms("tags").Buckets.Select(b => new KeyValuePair<string, long?>(b.Key, b.DocCount)).ToList();
                 res.SalaryRange = response.Aggregations.Range("salary_range").Buckets.Select(b => b.DocCount).ToList();
 
