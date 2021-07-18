@@ -293,7 +293,7 @@ namespace JobSEServer.Services
                 res.TotalCount = response.Total;
                 res.AverageSalary = response.Aggregations.WeightedAverage("average_salary").Value;
                 res.AverageRating = response.Aggregations.Average("average_rating").Value;
-                res.TotalViewCount = response.Aggregations.Sum("average_views").Value;
+                res.TotalViewCount = response.Aggregations.Sum("total_views").Value;
                 res.Tags = response.Aggregations.Terms("tags").Buckets.Select(b => new KeyValuePair<string, long?>(b.Key, b.DocCount)).ToList();
                 res.SalaryRange = response.Aggregations.Range("salary_range").Buckets.Select(b => b.DocCount).ToList();
 
